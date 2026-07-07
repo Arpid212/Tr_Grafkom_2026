@@ -1,5 +1,4 @@
 #define STB_IMAGE_IMPLEMENTATION
-#include "library/stb_image.h" 
 #include <GL/freeglut.h>
 #include <math.h>
 #include <string.h>
@@ -8,6 +7,7 @@
 // ==============================================================================
 // KONFIGURASI KAMERA & STATE
 // ==============================================================================
+
 float camX = 0.0f, camY = 4.0f, camZ = 8.0f; 
 float lookX = 0.0f, lookY = 4.0f, lookZ = 0.0f; 
 float angleH = 0.0f, angleV = 0.0f; 
@@ -23,34 +23,25 @@ bool isLightOn = false;
 bool isDoorOpen = false;
 float doorAngle = 0.0f; 
 
-// ==============================================================================
-// TEKSTUR (Hanya framework, siapkan file foto jika dosen meminta)
-// ==============================================================================
-// Jika kamu ingin menggunakan tekstur lantai, kamu bisa menggunakan library
-// stb_image.h. Di sini saya sediakan ID tekstur sebagai persiapan.
-GLuint floorTexture;
-bool useTexture = true; // Ubah ke true jika stb_image sudah diimplementasikan
+void passiveMouseMotion(int x, int y) {
+    int width = glutGet(GLUT_WINDOW_WIDTH);
+    int height = glutGet(GLUT_WINDOW_HEIGHT);
+    int centerX = width / 2;
+    int centerY = height / 2;
 
-GLuint loadTexture(const char* filename) {
-    GLuint textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
+    if (x == centerX && y == centerY) return;
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    float deltaX = (float)(x - centerX);
+    float deltaY = (float)(y - centerY);
+    float sensitivity = 0.002f;
 
-    int width, height, nrChannels;
-    unsigned char *data = stbi_load(filename, &width, &height, &nrChannels, 0);
-    if (data) {
-        GLenum format = (nrChannels == 4) ? GL_RGBA : GL_RGB;
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-    } else {
-        std::cout << "Gagal memuat tekstur: " << filename << std::endl;
-    }
-    stbi_image_free(data);
-    return textureID;
+    angleH += deltaX * sensitivity; 
+    angleV -= deltaY * sensitivity; 
+
+    if (angleV > 1.48f) angleV = 1.48f;
+    if (angleV < -1.48f) angleV = -1.48f;
+
+    glutWarpPointer(centerX, centerY);
 }
 
 // ==============================================================================
@@ -62,13 +53,12 @@ void updateCameraLook() {
     lookZ = camZ - cos(angleH) * cos(angleV);
 }
 
-// Fungsi untuk merender teks 3D (judul buku dll)
 void drawText3D(const char* text, float x, float y, float z, float scale, float rotY) {
     glPushMatrix();
     glTranslatef(x, y, z);
     glRotatef(rotY, 0.0f, 1.0f, 0.0f);
     glScalef(scale, scale, scale);
-    glColor3f(1.0f, 1.0f, 1.0f); // Teks putih
+    glColor3f(1.0f, 1.0f, 1.0f); 
     glLineWidth(2.0f);
     for (int i = 0; i < strlen(text); i++) {
         glutStrokeCharacter(GLUT_STROKE_ROMAN, text[i]);
@@ -91,15 +81,28 @@ void drawEnvironment() {
 }
 
 void drawRoom() {
-    // Lantai
-    glColor3f(0.8f, 0.7f, 0.6f); // Warna kayu minimalis
-    glBegin(GL_QUADS);
-    glNormal3f(0.0f, 1.0f, 0.0f);
-    glVertex3f(-10.0f, 0.0f, 10.0f); glVertex3f(10.0f, 0.0f, 10.0f);
-    glVertex3f(10.0f, 0.0f, -10.0f); glVertex3f(-10.0f, 0.0f, -10.0f);
-    glEnd();
+    // 1. LANTAI PROSEDURAL
+    glDisable(GL_LIGHTING); 
+    float tileSize = 2.0f; 
+    for (float x = -10.0f; x < 10.0f; x += tileSize) {
+        for (float z = -10.0f; z < 10.0f; z += tileSize) {
+            if ((int)((x + 10.0f) / tileSize + (z + 10.0f) / tileSize) % 2 == 0) {
+                glColor3f(0.45f, 0.3f, 0.2f); 
+            } else {
+                glColor3f(0.6f, 0.45f, 0.3f); 
+            }
+            glBegin(GL_QUADS);
+            glNormal3f(0.0f, 1.0f, 0.0f);
+            glVertex3f(x,            0.0f, z + tileSize);
+            glVertex3f(x + tileSize, 0.0f, z + tileSize);
+            glVertex3f(x + tileSize, 0.0f, z);
+            glVertex3f(x,            0.0f, z);
+            glEnd();
+        }
+    }
+    if (isLightOn) glEnable(GL_LIGHTING); 
 
-    // Atap
+    // 2. ATAP
     glColor3f(0.9f, 0.9f, 0.9f);
     glBegin(GL_QUADS);
     glNormal3f(0.0f, -1.0f, 0.0f);
@@ -107,7 +110,7 @@ void drawRoom() {
     glVertex3f(10.0f, 10.0f, 10.0f); glVertex3f(-10.0f, 10.0f, 10.0f);
     glEnd();
 
-    // Tembok Belakang & Kanan
+    // 3. TEMBOK BELAKANG & KANAN
     glColor3f(0.95f, 0.95f, 0.95f);
     glBegin(GL_QUADS);
     glNormal3f(0.0f, 0.0f, 1.0f);
@@ -118,25 +121,21 @@ void drawRoom() {
     glVertex3f(10.0f, 10.0f, 10.0f); glVertex3f(10.0f, 10.0f, -10.0f);
     glEnd();
 
-    // Tembok Kiri (Dengan Ventilasi & Jendela)
+    // 4. TEMBOK KIRI (Dengan Jendela)
     glColor3f(0.92f, 0.92f, 0.92f);
     glBegin(GL_QUADS);
     glNormal3f(1.0f, 0.0f, 0.0f);
-    // Bawah Jendela
     glVertex3f(-10.0f, 0.0f, 10.0f); glVertex3f(-10.0f, 0.0f, -10.0f);
     glVertex3f(-10.0f, 3.0f, -10.0f); glVertex3f(-10.0f, 3.0f, 10.0f);
-    // Atas Jendela
     glVertex3f(-10.0f, 7.0f, 10.0f); glVertex3f(-10.0f, 7.0f, -10.0f);
     glVertex3f(-10.0f, 10.0f, -10.0f); glVertex3f(-10.0f, 10.0f, 10.0f);
-    // Kiri Jendela
     glVertex3f(-10.0f, 3.0f, 10.0f); glVertex3f(-10.0f, 3.0f, 2.0f);
     glVertex3f(-10.0f, 7.0f, 2.0f); glVertex3f(-10.0f, 7.0f, 10.0f);
-    // Kanan Jendela
     glVertex3f(-10.0f, 3.0f, -4.0f); glVertex3f(-10.0f, 3.0f, -10.0f);
     glVertex3f(-10.0f, 7.0f, -10.0f); glVertex3f(-10.0f, 7.0f, -4.0f);
     glEnd();
 
-    // Tembok Depan (Dengan Pintu)
+    // 5. TEMBOK DEPAN (Dengan Pintu)
     glBegin(GL_QUADS);
     glNormal3f(0.0f, 0.0f, -1.0f);
     glVertex3f(-10.0f, 0.0f, 10.0f); glVertex3f(-2.0f, 0.0f, 10.0f);
@@ -148,22 +147,17 @@ void drawRoom() {
     glEnd();
 }
 
-// ==============================================================================
-// GORDEN JENDELA (Native Vertex Melengkung)
-// ==============================================================================
 void drawCurtains() {
     glPushMatrix();
-    glTranslatef(-9.8f, 7.0f, -4.0f); // Posisi gorden di sisi jendela
-    glColor3f(0.4f, 0.4f, 0.5f); // Warna navy elegan minimalis
-
-    // Membuat lipatan gorden dengan kurva sinus secara native
+    glTranslatef(-9.8f, 7.0f, -4.0f); 
+    glColor3f(0.4f, 0.4f, 0.5f); 
     glBegin(GL_QUAD_STRIP);
     for (int i = 0; i <= 60; i++) {
-        float zPos = i * 0.1f; // Lebar gorden ke arah sumbu Z
-        float xWave = sin(i * 0.5f) * 0.2f; // Gelombang lipatan
+        float zPos = i * 0.1f; 
+        float xWave = sin(i * 0.5f) * 0.2f; 
         glNormal3f(1.0f, 0.0f, 0.0f);
-        glVertex3f(xWave, 0.0f, zPos);      // Titik atas
-        glVertex3f(xWave, -4.5f, zPos);     // Titik bawah menjuntai
+        glVertex3f(xWave, 0.0f, zPos);      
+        glVertex3f(xWave, -4.5f, zPos);     
     }
     glEnd();
     glPopMatrix();
@@ -173,22 +167,17 @@ void drawDoor() {
     glPushMatrix();
     glTranslatef(-2.0f, 0.0f, 10.0f); 
     glRotatef(doorAngle, 0.0f, 1.0f, 0.0f); 
-    
-    // Daun Pintu
     glColor3f(0.5f, 0.3f, 0.2f); 
     glBegin(GL_QUADS);
     glNormal3f(0.0f, 0.0f, -1.0f); 
     glVertex3f(0.0f, 0.0f, 0.0f); glVertex3f(4.0f, 0.0f, 0.0f);
     glVertex3f(4.0f, 6.0f, 0.0f); glVertex3f(0.0f, 6.0f, 0.0f);
     glEnd();
-
-    // Gagang Pintu (Detail)
     glColor3f(0.8f, 0.8f, 0.8f);
     glPushMatrix();
     glTranslatef(3.5f, 3.0f, -0.1f);
     glutSolidSphere(0.15, 10, 10);
     glPopMatrix();
-    
     glPopMatrix();
 }
 
@@ -200,12 +189,10 @@ void drawFan() {
     glScalef(0.2f, 1.0f, 0.2f);
     glutSolidCube(1.0);
     glPopMatrix();
-
     glTranslatef(0.0f, -0.5f, 0.0f);
     glRotatef(fanAngle, 0.0f, 1.0f, 0.0f);
     glColor3f(0.4f, 0.4f, 0.4f);
     glutSolidSphere(0.4, 20, 20);
-
     glColor3f(0.9f, 0.9f, 0.9f);
     for (int i = 0; i < 4; i++) {
         glPushMatrix();
@@ -218,56 +205,41 @@ void drawFan() {
     glPopMatrix();
 }
 
-// ==============================================================================
-// FURNITUR KAMAR
-// ==============================================================================
 void drawBed() {
     glPushMatrix();
     glTranslatef(-6.0f, 0.0f, -6.0f);
-    
-    // Rangka Kasur
     glColor3f(0.3f, 0.2f, 0.1f);
     glPushMatrix();
     glTranslatef(0.0f, 0.5f, 0.0f);
     glScalef(5.0f, 1.0f, 7.0f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    // Matras
-    glColor3f(0.9f, 0.9f, 0.9f); // Putih bersih
+    glColor3f(0.9f, 0.9f, 0.9f); 
     glPushMatrix();
     glTranslatef(0.0f, 1.2f, 0.0f);
     glScalef(4.8f, 0.6f, 6.8f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    // Bantal 1
     glColor3f(0.8f, 0.8f, 0.85f);
     glPushMatrix();
     glTranslatef(-1.2f, 1.6f, -2.5f);
     glScalef(1.8f, 0.3f, 1.2f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    // Bantal 2
     glPushMatrix();
     glTranslatef(1.2f, 1.6f, -2.5f);
     glScalef(1.8f, 0.3f, 1.2f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    // Selimut (Detail native dengan lipatan kecil di ujung)
     glColor3f(0.3f, 0.5f, 0.6f);
     glBegin(GL_QUADS);
     glNormal3f(0.0f, 1.0f, 0.0f);
     glVertex3f(-2.45f, 1.55f, -0.5f); glVertex3f(2.45f, 1.55f, -0.5f);
     glVertex3f(2.45f, 1.55f, 3.45f);  glVertex3f(-2.45f, 1.55f, 3.45f);
-    // Juntaian selimut
     glNormal3f(0.0f, 0.0f, 1.0f);
     glVertex3f(-2.45f, 1.55f, 3.45f); glVertex3f(2.45f, 1.55f, 3.45f);
     glVertex3f(2.45f, 0.5f, 3.45f);   glVertex3f(-2.45f, 0.5f, 3.45f);
     glEnd();
-
     glPopMatrix();
 }
 
@@ -275,15 +247,14 @@ void drawDeskAndLaptop() {
     glPushMatrix();
     glTranslatef(6.0f, 0.0f, -7.0f);
     
-    // Papan Meja
-    glColor3f(0.2f, 0.2f, 0.2f); // Meja hitam elegan
+    // 1. Meja Belajar
+    glColor3f(0.2f, 0.2f, 0.2f); 
     glPushMatrix();
     glTranslatef(0.0f, 2.5f, 0.0f);
     glScalef(5.0f, 0.2f, 3.0f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    // Kaki Meja
+    
     glColor3f(0.6f, 0.6f, 0.6f);
     float legPos[4][2] = {{-2.3f, -1.3f}, {2.3f, -1.3f}, {-2.3f, 1.3f}, {2.3f, 1.3f}};
     for (int i=0; i<4; i++) {
@@ -294,19 +265,19 @@ void drawDeskAndLaptop() {
         glPopMatrix();
     }
 
-    // --- LAPTOP (Silver M4 Style) ---
+    // 2. Base Laptop & Layar
     glPushMatrix();
     glTranslatef(0.0f, 2.65f, 0.0f);
     glRotatef(-15.0f, 0.0f, 1.0f, 0.0f); 
-
-    // Base Laptop
-    glColor3f(0.75f, 0.75f, 0.75f); // Silver
+    
+    // Body Bawah Laptop (Silver)
+    glColor3f(0.75f, 0.75f, 0.75f); 
     glPushMatrix();
     glScalef(1.8f, 0.08f, 1.2f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    // Keyboard Hitam (Detail Hardcode)
+    
+    // Area Tatakan Keyboard (Hitam)
     glColor3f(0.1f, 0.1f, 0.1f);
     glPushMatrix();
     glTranslatef(0.0f, 0.05f, 0.1f);
@@ -314,74 +285,151 @@ void drawDeskAndLaptop() {
     glutSolidCube(1.0);
     glPopMatrix();
 
-    // Layar Laptop Terbuka
+    // -------------------------------------------------------------------------
+    // TAMBAHAN: ORNAMEN GARIS-GARIS KEYBOARD (ANTI NO-CLIP TEXTURE)
+    // -------------------------------------------------------------------------
+    glDisable(GL_LIGHTING); // Matikan lighting sejenak agar garis tombol tajam konstan
+    glColor3f(0.4f, 0.4f, 0.4f); // Warna garis abu-abu keyboard
+    glLineWidth(1.5f);
+
+    // Kita gambar grid di atas permukaan tatakan hitam (Y = 0.076f agar tidak z-fighting)
+    // Area tatakan membentang dari X: -0.8 sampai 0.8, dan Z: -0.3 sampai 0.5
+    glBegin(GL_LINES);
+    
+    // A. Garis-Garis Horizontal (Membuat Baris Tombol / Rows)
+    // Membuat 5 baris tombol dari atas ke bawah
+    for (float zRow = -0.25f; zRow <= 0.45f; zRow += 0.14f) {
+        glVertex3f(-0.75f, 0.076f, zRow);
+        glVertex3f( 0.75f, 0.076f, zRow);
+    }
+
+    // B. Garis-Garis Vertikal (Memotong Menjadi Kolom Tombol / Keys)
+    // Membuat sekat tombol dari kiri ke kanan
+    for (float xCol = -0.75f; xCol <= 0.75f; xCol += 0.12f) {
+        glVertex3f(xCol, 0.076f, -0.25f);
+        glVertex3f(xCol, 0.076f,  0.45f);
+    }
+    glEnd();
+    if (isLightOn) glEnable(GL_LIGHTING);
+    // -------------------------------------------------------------------------
+
+    // 3. Monitor Laptop
     glTranslatef(0.0f, 0.5f, -0.6f);
     glRotatef(-20.0f, 1.0f, 0.0f, 0.0f); 
     
-    // Casing Layar
+    // Frame Monitor (Silver)
     glColor3f(0.75f, 0.75f, 0.75f);
     glPushMatrix();
     glScalef(1.8f, 1.2f, 0.08f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    // Panel Layar (Menyala)
-    glColor3f(0.1f, 0.8f, 0.9f); // Warna layar cyan/menyala
+    
+    // Layar Menyala (Cyan)
+    glColor3f(0.1f, 0.8f, 0.9f); 
     glPushMatrix();
     glTranslatef(0.0f, 0.0f, 0.05f);
     glScalef(1.7f, 1.1f, 0.02f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    glPopMatrix(); // End Laptop
-    glPopMatrix(); // End Desk
+    
+    glPopMatrix(); 
+    glPopMatrix(); 
 }
 
-// ==============================================================================
-// BUKU DAN RAK BUKU (Detail Manual)
-// ==============================================================================
 void drawSingleBook(float w, float h, float d, float r, float g, float b, const char* title) {
-    // Cover Buku
-    glColor3f(r, g, b);
+    float coverThickness = 0.02f; // Ketebalan kulit cover buku
+
+    // -------------------------------------------------------------------------
+    // A. GAMBAR ISI BUKU (KERTAS PUTIH MURNI - MENGHADAP DEPAN KAMERA)
+    // -------------------------------------------------------------------------
+    glColor3f(0.95f, 0.95f, 0.95f);
     glPushMatrix();
-    glScalef(w, h, d);
+    // Ukuran kertas sedikit lebih kecil dari cover agar menjepit di dalam
+    glScalef(w - (coverThickness * 2), h - 0.04f, d - coverThickness);
+    glTranslatef(0.0f, 0.0f, coverThickness / 2.0f);
     glutSolidCube(1.0);
     glPopMatrix();
 
-    // Halaman Buku
-    glColor3f(0.9f, 0.9f, 0.9f);
-    glBegin(GL_QUADS);
-    glNormal3f(0.0f, 0.0f, 1.0f);
-    glVertex3f(-w/2.05f, -h/2.05f, d/2.05f); glVertex3f(w/2.05f, -h/2.05f, d/2.05f);
-    glVertex3f(w/2.05f, h/2.05f, d/2.05f);   glVertex3f(-w/2.05f, h/2.05f, d/2.05f);
-    glEnd();
+    // -------------------------------------------------------------------------
+    // B. GAMBAR KULIT COVER BUKU (WARNA PROSEDURAL JEPERET KANAN-KIRI-BELAKANG)
+    // -------------------------------------------------------------------------
+    glColor3f(r, g, b); // Warna Cover Buku
 
-    // Teks di punggung buku
+    // 1. Cover Lembar Kiri
     glPushMatrix();
-    // Digeser lebih ke ujung bawah (-h/2.2f) agar tulisan panjang bisa muat
-    glTranslatef(-w/2.5f, -h/2.2f, d/2.0f + 0.01f); 
-    // Skala diperkecil drastis (dari 0.0015f menjadi 0.0007f)
-    glScalef(0.0007f, 0.0007f, 0.0007f); 
-    glColor3f(1.0f, 1.0f, 1.0f);
-    glLineWidth(1.5f);
+    glTranslatef(-(w / 2.0f) + (coverThickness / 2.0f), 0.0f, 0.0f);
+    glScalef(coverThickness, h, d);
+    glutSolidCube(1.0);
+    glPopMatrix();
+
+    // 2. Cover Lembar Kanan
+    glPushMatrix();
+    glTranslatef((w / 2.0f) - (coverThickness / 2.0f), 0.0f, 0.0f);
+    glScalef(coverThickness, h, d);
+    glutSolidCube(1.0);
+    glPopMatrix();
+
+    // 3. Punggung Belakang Buku (Menutup Bagian Belakang Rak)
+    glPushMatrix();
+    glTranslatef(0.0f, 0.0f, -(d / 2.0f) + (coverThickness / 2.0f));
+    glScalef(w, h, coverThickness);
+    glutSolidCube(1.0);
+    glPopMatrix();
+
+    // -------------------------------------------------------------------------
+    // C. MENEMPELKAN JUDUL DI SAMPING COVER BUKU (SISI KANAN & SISI KIRI)
+    // -------------------------------------------------------------------------
+    glDisable(GL_LIGHTING);
+    GLboolean isCullEnabled = glIsEnabled(GL_CULL_FACE);
+    if (isCullEnabled) glDisable(GL_CULL_FACE);
+
+    float textScale = 0.00045f;
+    float totalTextLength = (float)glutStrokeLength(GLUT_STROKE_ROMAN, (const unsigned char*)title);
+    float realTextLength3D = totalTextLength * textScale;
+    float startX = -(realTextLength3D / 2.0f);
+    float startY = -(textScale * 100.0f) / 2.0f;
+
+    // === 1. TEKS DI COVER SEBELAH KANAN ===
+    glPushMatrix();
+    glTranslatef((w / 2.0f) + 0.005f, 0.0f, 0.0f); 
+    glRotatef(90.0f, 0.0f, 1.0f, 0.0f); // Menghadap ke kanan
+    glPushMatrix();
+    glTranslatef(startX, startY, 0.0f);
+    glScalef(textScale, textScale, textScale);
+    glColor3f(1.0f, 1.0f, 1.0f); // Warna putih murni
+    glLineWidth(2.0f);
     for (int i = 0; i < strlen(title); i++) {
         glutStrokeCharacter(GLUT_STROKE_ROMAN, title[i]);
     }
     glPopMatrix();
+    glPopMatrix();
+
+    // === 2. TAMBAHAN: TEKS DI COVER SEBELAH KIRI ===
+    glPushMatrix();
+    glTranslatef(-(w / 2.0f) - 0.005f, 0.0f, 0.0f); 
+    glRotatef(-90.0f, 0.0f, 1.0f, 0.0f); // Menghadap ke kiri (kebalikan dari sisi kanan)
+    glPushMatrix();
+    glTranslatef(startX, startY, 0.0f);
+    glScalef(textScale, textScale, textScale);
+    glColor3f(1.0f, 1.0f, 1.0f); // Warna putih murni
+    glLineWidth(2.0f);
+    for (int i = 0; i < strlen(title); i++) {
+        glutStrokeCharacter(GLUT_STROKE_ROMAN, title[i]);
+    }
+    glPopMatrix();
+    glPopMatrix();
+
+    if (isCullEnabled) glEnable(GL_CULL_FACE);
+    if (isLightOn) glEnable(GL_LIGHTING);
 }
 
 void drawBookshelf() {
     glPushMatrix();
-    glTranslatef(8.0f, 0.0f, 3.0f); // Posisi Rak
-    
-    // Struktur Rak (Kayu gelap)
+    glTranslatef(8.0f, 0.0f, 3.0f); 
     glColor3f(0.4f, 0.2f, 0.1f);
-    
-    // Sisi Kiri & Kanan
     glPushMatrix(); glTranslatef(-1.5f, 4.0f, 0.0f); glScalef(0.2f, 8.0f, 2.0f); glutSolidCube(1.0); glPopMatrix();
     glPushMatrix(); glTranslatef(1.5f, 4.0f, 0.0f);  glScalef(0.2f, 8.0f, 2.0f); glutSolidCube(1.0); glPopMatrix();
     
-    // Hambalan (Rak 1, 2, 3, 4)
     for(float y = 0.5f; y <= 7.0f; y += 2.0f) {
         glPushMatrix();
         glTranslatef(0.0f, y, 0.0f);
@@ -389,35 +437,29 @@ void drawBookshelf() {
         glutSolidCube(1.0);
         glPopMatrix();
     }
-
-    // --- MENGISI RAK DENGAN BUKU (Hardcoded untuk memenuhi permintaan baris & detail) ---
-    // Rak 1 (Bawah)
-    glPushMatrix(); glTranslatef(-1.0f, 1.1f, 0.0f); drawSingleBook(0.4f, 1.0f, 1.2f, 0.8f, 0.1f, 0.1f, "Panduan Lab FTI"); glPopMatrix();
-    glPushMatrix(); glTranslatef(-0.5f, 1.1f, 0.0f); drawSingleBook(0.3f, 0.9f, 1.2f, 0.1f, 0.3f, 0.8f, "C++ Basic"); glPopMatrix();
-    glPushMatrix(); glTranslatef(-0.1f, 1.1f, 0.0f); drawSingleBook(0.5f, 1.1f, 1.3f, 0.2f, 0.8f, 0.2f, "Algoritma"); glPopMatrix();
-
-    // Rak 2
-    glPushMatrix(); glTranslatef(1.0f, 3.1f, 0.0f); drawSingleBook(0.3f, 1.0f, 1.1f, 0.9f, 0.6f, 0.1f, "KreatorHub Master"); glPopMatrix();
-    glPushMatrix(); glTranslatef(0.6f, 3.1f, 0.0f); drawSingleBook(0.4f, 0.8f, 1.1f, 0.4f, 0.4f, 0.4f, "UI/UX Design"); glPopMatrix();
-
-    // Rak 3 (Miring sedikit untuk realisme)
+    
+    // TINGKAT 1: Buku Berdiri Tegak Berjejer (Sisi Kertas di Depan Kamera)
+    glPushMatrix(); glTranslatef(-0.8f, 1.1f, 0.2f); drawSingleBook(0.35f, 1.1f, 1.2f, 0.8f, 0.1f, 0.1f, "Panduan Lab FTI"); glPopMatrix();
+    glPushMatrix(); glTranslatef(-0.4f, 1.0f, 0.2f); drawSingleBook(0.32f, 0.95f, 1.2f, 0.1f, 0.3f, 0.8f, "C++ Basic"); glPopMatrix();
+    glPushMatrix(); glTranslatef(0.0f, 1.15f, 0.2f); drawSingleBook(0.38f, 1.2f, 1.2f, 0.2f, 0.7f, 0.2f, "Algoritma"); glPopMatrix();
+    
+    // TINGKAT 2: Buku Desain
+    glPushMatrix(); glTranslatef(0.4f, 3.1f, 0.2f); drawSingleBook(0.35f, 1.1f, 1.2f, 0.9f, 0.6f, 0.1f, "KreatorHub Master"); glPopMatrix();
+    glPushMatrix(); glTranslatef(0.0f, 3.0f, 0.2f); drawSingleBook(0.35f, 0.9f, 1.2f, 0.4f, 0.4f, 0.4f, "UI/UX Design"); glPopMatrix();
+    
+    // TINGKAT 3: Buku Istimewa Dimiringkan Bersandar
     glPushMatrix(); 
-    glTranslatef(-1.0f, 5.1f, 0.0f); 
-    glRotatef(15.0f, 0.0f, 0.0f, 1.0f); // Buku miring
-    drawSingleBook(0.3f, 1.0f, 1.2f, 0.9f, 0.3f, 0.6f, "Memori Anggita"); 
+    glTranslatef(-0.6f, 5.1f, 0.2f); 
+    glRotatef(-16.0f, 0.0f, 0.0f, 1.0f); 
+    drawSingleBook(0.32f, 1.1f, 1.2f, 0.9f, 0.3f, 0.6f, "Memori Anggita"); 
     glPopMatrix();
-
-    glPopMatrix(); // End Bookshelf
+    
+    glPopMatrix(); 
 }
 
-// ==============================================================================
-// LEMARI & GANTUNGAN BAJU (Geometri Kompleks)
-// ==============================================================================
 void drawShirt(float x, float y, float z, float r, float g, float b) {
     glPushMatrix();
     glTranslatef(x, y, z);
-    
-    // Gantungan (Hanger) kawat
     glColor3f(0.8f, 0.8f, 0.8f);
     glBegin(GL_LINE_LOOP);
     glVertex3f(0.0f, 0.5f, 0.0f);
@@ -428,18 +470,15 @@ void drawShirt(float x, float y, float z, float r, float g, float b) {
     glVertex3f(0.0f, 0.5f, 0.0f);
     glVertex3f(0.0f, 0.7f, 0.0f);
     glEnd();
-
-    // Kain Baju (Native Quads)
     glColor3f(r, g, b);
     glBegin(GL_QUADS);
-    glNormal3f(0.0f, 0.0f, 1.0f); // Depan
+    glNormal3f(0.0f, 0.0f, 1.0f); 
     glVertex3f(-0.7f, 0.0f, 0.1f);  glVertex3f(0.7f, 0.0f, 0.1f);
     glVertex3f(0.6f, -1.5f, 0.1f);  glVertex3f(-0.6f, -1.5f, 0.1f);
-    glNormal3f(0.0f, 0.0f, -1.0f); // Belakang
+    glNormal3f(0.0f, 0.0f, -1.0f); 
     glVertex3f(-0.7f, 0.0f, -0.1f); glVertex3f(0.7f, 0.0f, -0.1f);
     glVertex3f(0.6f, -1.5f, -0.1f); glVertex3f(-0.6f, -1.5f, -0.1f);
     glEnd();
-
     glPopMatrix();
 }
 
@@ -447,41 +486,30 @@ void drawWardrobeAndClothes() {
     glPushMatrix();
     glTranslatef(-7.0f, 0.0f, 5.0f); 
     glRotatef(90.0f, 0.0f, 1.0f, 0.0f);
-    
-    // Lemari Terbuka (Tanpa pintu agar baju terlihat)
     glColor3f(0.5f, 0.35f, 0.25f);
-    // Sisi Kiri
     glPushMatrix(); glTranslatef(-2.0f, 4.0f, 0.0f); glScalef(0.2f, 8.0f, 3.0f); glutSolidCube(1.0); glPopMatrix();
-    // Sisi Kanan
     glPushMatrix(); glTranslatef(2.0f, 4.0f, 0.0f);  glScalef(0.2f, 8.0f, 3.0f); glutSolidCube(1.0); glPopMatrix();
-    // Belakang
     glPushMatrix(); glTranslatef(0.0f, 4.0f, -1.4f); glScalef(4.0f, 8.0f, 0.2f); glutSolidCube(1.0); glPopMatrix();
-    // Atap Lemari
     glPushMatrix(); glTranslatef(0.0f, 7.9f, 0.0f);  glScalef(4.0f, 0.2f, 3.0f); glutSolidCube(1.0); glPopMatrix();
-    
-    // Pipa Besi Gantungan
     glColor3f(0.8f, 0.8f, 0.8f);
     glPushMatrix();
     glTranslatef(0.0f, 6.5f, 0.0f);
     glScalef(4.0f, 0.1f, 0.1f);
     glutSolidCube(1.0);
     glPopMatrix();
-
-    // Baju yang digantung (Memanggil fungsi baju manual)
-    drawShirt(-1.0f, 5.8f, 0.0f,  0.8f, 0.2f, 0.2f); // Baju Merah
-    drawShirt(-0.2f, 5.8f, 0.0f,  0.2f, 0.3f, 0.8f); // Baju Biru
-    drawShirt(0.6f, 5.8f, 0.0f,  0.9f, 0.9f, 0.9f); // Baju Putih
-    drawShirt(1.4f, 5.8f, 0.0f,  0.2f, 0.8f, 0.3f); // Baju Hijau
-
-    glPopMatrix(); // End Wardrobe
+    drawShirt(-1.0f, 5.8f, 0.0f,  0.8f, 0.2f, 0.2f); 
+    drawShirt(-0.2f, 5.8f, 0.0f,  0.2f, 0.3f, 0.8f); 
+    drawShirt(0.6f, 5.8f, 0.0f,  0.9f, 0.9f, 0.9f); 
+    drawShirt(1.4f, 5.8f, 0.0f,  0.2f, 0.8f, 0.3f); 
+    glPopMatrix(); 
 }
 
 // ==============================================================================
 // SISTEM PENCAHAYAAN
 // ==============================================================================
 void initLighting() {
-    GLfloat lightAmbient[] = { 0.1f, 0.1f, 0.1f, 1.0f };
-    GLfloat lightDiffuse[] = { 0.9f, 0.9f, 0.9f, 1.0f };
+    GLfloat lightAmbient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+    GLfloat lightDiffuse[] = { 0.8f, 0.8f, 0.8f, 1.0f };
     GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
     GLfloat lightPosition[] = { 0.0f, 9.0f, 0.0f, 1.0f }; 
 
@@ -497,35 +525,85 @@ void initLighting() {
 // ==============================================================================
 // LOGIKA GERAK & INPUT
 // ==============================================================================
+
+// Fungsi pembantu untuk mengecek apakah posisi (x, z) berada di dalam suatu kotak perabotan
+bool checkCollision(float x, float z) {
+    // 1. BATAS TEMBOK KAMAR (Kamar luasnya dari -10 sampai 10)
+    // Berikan jarak aman (radius kamera) sebesar 0.5 agar kamera tidak terlalu mepet tembok
+    if (x < -9.5f || x > 9.5f || z < -9.5f || z > 9.5f) {
+        return true; 
+    }
+
+    // 2. KOTAK KASUR (drawBed) -> Posisi di glTranslatef(-6.0f, 0.0f, -6.0f) dengan skala kubus 5.0 x 7.0
+    // Batas X: -6.0 - 2.5 = -8.5 sampai -6.0 + 2.5 = -3.5
+    // Batas Z: -6.0 - 3.5 = -9.5 sampai -6.0 + 3.5 = -2.5
+    if (x >= -8.7f && x <= -3.3f && z >= -9.7f && z <= -2.3f) {
+        return true;
+    }
+
+    // 3. KOTAK MEJA BELAJAR (drawDeskAndLaptop) -> Posisi di glTranslatef(6.0f, 0.0f, -7.0f) skala 5.0 x 3.0
+    // Batas X: 6.0 - 2.5 = 3.5 sampai 6.0 + 2.5 = 8.5
+    // Batas Z: -7.0 - 1.5 = -8.5 sampai -7.0 + 1.5 = -5.5
+    if (x >= 3.3f && x <= 8.7f && z >= -8.7f && z <= -5.3f) {
+        return true;
+    }
+
+    // 4. KOTAK RAK BUKU (drawBookshelf) -> Posisi di glTranslatef(8.0f, 0.0f, 3.0f) skala 3.0 x 2.0
+    // Batas X: 8.0 - 1.5 = 6.5 sampai 8.0 + 1.5 = 9.5
+    // Batas Z: 3.0 - 1.0 = 2.0 sampai 3.0 + 1.0 = 4.0
+    if (x >= 6.3f && x <= 9.7f && z >= 1.7f && z <= 4.3f) {
+        return true;
+    }
+
+    // 5. KOTAK LEMARI BAJU (drawWardrobeAndClothes) -> Posisi di glTranslatef(-7.0f, 0.0f, 5.0f) 
+    // Karena dirotasi 90 derajat, skalanya bertukar: X jadi tebal (3.0), Z jadi lebar (4.0)
+    // Batas X: -7.0 - 1.5 = -8.5 sampai -7.0 + 1.5 = -5.5
+    // Batas Z: 5.0 - 2.0 = 3.0 sampai 5.0 + 2.0 = 7.0
+    if (x >= -8.7f && x <= -5.3f && z >= 2.7f && z <= 7.3f) {
+        return true;
+    }
+
+    return false; // Jika tidak mengenai apa pun, aman (tidak tabrakan)
+}
+
 void handleMovement() {
     float moveSpeed = 0.15f; 
-    
-    // Vektor arah maju (Forward)
     float dirX = sin(angleH) * cos(angleV);
-    float dirY = sin(angleV);
     float dirZ = -cos(angleH) * cos(angleV);
-    
-    // PERBAIKAN: Vektor arah samping (True Right Vector)
     float rightX = cos(angleH);
     float rightZ = sin(angleH);
 
-    // W = Maju
+    // Variabel sementara untuk menampung posisi baru sebelum dieksekusi
+    float nextX = camX;
+    float nextZ = camZ;
+
+    // Kalkulasi pergerakan berdasarkan tombol keyboard yang ditekan
     if (keys['w'] || keys['W']) { 
-        camX += dirX * moveSpeed; camY += dirY * moveSpeed; camZ += dirZ * moveSpeed; 
+        nextX += dirX * moveSpeed; 
+        nextZ += dirZ * moveSpeed; 
     }
-    // A = Geser Kiri (Mengikuti Kamera)
-    if (keys['a'] || keys['A']) { 
-        camX -= rightX * moveSpeed; camZ -= rightZ * moveSpeed; 
-    }
-    // S = Geser Kanan (Sesuai permintaan)
-    if (keys['d'] || keys['D']) { 
-        camX += rightX * moveSpeed; camZ += rightZ * moveSpeed; 
-    }
-    // D = Mundur (Dialokasikan ke D karena S dipakai untuk geser kanan)
     if (keys['s'] || keys['S']) { 
-        camX -= dirX * moveSpeed; camY -= dirY * moveSpeed; camZ -= dirZ * moveSpeed; 
+        nextX -= dirX * moveSpeed; 
+        nextZ -= dirZ * moveSpeed; 
+    }
+    if (keys['a'] || keys['A']) { 
+        nextX -= rightX * moveSpeed; 
+        nextZ -= rightZ * moveSpeed; 
+    }
+    if (keys['d'] || keys['D']) { 
+        nextX += rightX * moveSpeed; 
+        nextZ += rightZ * moveSpeed; 
+    }
+
+    // SELEKSI FISIK: Hanya update posisi asli jika jalur masa depan TIDAK Nabrak!
+    if (!checkCollision(nextX, camZ)) {
+        camX = nextX;
+    }
+    if (!checkCollision(camX, nextZ)) {
+        camZ = nextZ;
     }
 }
+
 void timer(int value) {
     handleMovement(); 
     updateCameraLook();
@@ -564,7 +642,7 @@ void display() {
     drawRoom();        
     drawDoor();        
     drawCurtains();
-    drawFan();         
+    drawFan();          
     drawBed();
     drawDeskAndLaptop();
     drawBookshelf();
@@ -618,12 +696,13 @@ int main(int argc, char** argv) {
 
     glEnable(GL_DEPTH_TEST);
     initLighting();
-    floorTexture = loadTexture("C:/Users/Bravo/OneDrive/Dokumen/Arpidddd/SEMESTER 6_25-26 (2)/Grafika Komputer/Utility for Visual Studio/TR/lantai.jpg");
+
     glutDisplayFunc(display);
     glutKeyboardFunc(keyDown);
     glutKeyboardUpFunc(keyUp); 
     glutMouseFunc(mouseButton);
-    glutMotionFunc(mouseMotion);
+    glutPassiveMotionFunc(passiveMouseMotion);
+    glutSetCursor(GLUT_CURSOR_NONE);
     glutMouseWheelFunc(mouseWheel); 
     glutTimerFunc(0, timer, 0);
 
