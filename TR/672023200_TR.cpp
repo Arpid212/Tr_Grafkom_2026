@@ -5,9 +5,7 @@
 #include <string.h>
 #include <iostream>
 
-// ==============================================================================
 // KONFIGURASI KAMERA & STATE
-// ==============================================================================
 float camX = 0.0f, camY = 4.0f, camZ = 8.0f; 
 float lookX = 0.0f, lookY = 4.0f, lookZ = 0.0f; 
 float angleH = 0.0f, angleV = 0.0f; 
@@ -55,14 +53,13 @@ void loadAllTextures() {
         std::cout << "Gagal muat poster: " << stbi_failure_reason() << std::endl;
     }
 
-    // 2. MEMUAT GAMBAR LANTAI (lantai.jpg)
+    // 2. MEMUAT GAMBAR LANTAI (lantai.bmp)
     unsigned char* floorData = stbi_load("lantai.bmp", &width, &height, &channels, 3);
     if (floorData) {
         isFloorLoaded = true;
         glGenTextures(1, &floorTexture);
         glBindTexture(GL_TEXTURE_2D, floorTexture);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        // Mengatur wrap S dan T ke REPEAT agar ubin bisa berulang menduplikat rapi
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -75,7 +72,7 @@ void loadAllTextures() {
         std::cout << "Gagal muat lantai: " << stbi_failure_reason() << std::endl;
     }
 
-    // 3. MEMUAT GAMBAR SPREI MU (mu.bmp)
+    // 3. MEMUAT GAMBAR SPREI (mu.jpg)
     unsigned char* bedData = stbi_load("mu.jpg", &width, &height, &channels, 3);
     if (bedData) {
         isBedLoaded = true;
@@ -114,9 +111,8 @@ void passiveMouseMotion(int x, int y) {
     glutWarpPointer(centerX, centerY);
 }
 
-// ==============================================================================
+
 // FUNGSI UTILITAS GEOMETRI & TEKS
-// ==============================================================================
 void updateCameraLook() {
     lookX = camX + sin(angleH) * cos(angleV);
     lookY = camY + sin(angleV);
@@ -136,9 +132,8 @@ void drawText3D(const char* text, float x, float y, float z, float scale, float 
     glPopMatrix();
 }
 
-// ==============================================================================
+
 // LINGKUNGAN & RUANGAN DASAR
-// ==============================================================================
 void drawEnvironment() {
     glColor3f(0.3f, 0.7f, 0.3f);
     glBegin(GL_QUADS);
@@ -151,9 +146,7 @@ void drawEnvironment() {
 }
 
 void drawRoom() {
-    // ---------------------------------------------------------------------
-    // 1. PERBAIKAN: LANTAI MENGGUNAKAN IMAGE lantai.jpg
-    // ---------------------------------------------------------------------
+    // 1. LANTAI 
     glDisable(GL_LIGHTING); 
     
     if (isFloorLoaded) {
@@ -161,10 +154,10 @@ void drawRoom() {
         glBindTexture(GL_TEXTURE_2D, floorTexture);
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
         
-        glColor3f(1.0f, 1.0f, 1.0f); // Putih murni agar warna asli gambar keluar
+        glColor3f(1.0f, 1.0f, 1.0f); 
         glBegin(GL_QUADS);
         glNormal3f(0.0f, 1.0f, 0.0f);
-        // Koordinat tekstur diset ke 4.0f agar gambar melakukan repeating/tiling 4x4 kotak ubin
+
         glTexCoord2f(0.0f, 0.0f); glVertex3f(-10.0f, 0.0f,  10.0f);
         glTexCoord2f(4.0f, 0.0f); glVertex3f( 10.0f, 0.0f,  10.0f);
         glTexCoord2f(4.0f, 4.0f); glVertex3f( 10.0f, 0.0f, -10.0f);
@@ -173,7 +166,7 @@ void drawRoom() {
         
         glDisable(GL_TEXTURE_2D);
     } else {
-        // Fallback cadangan jika gambar lantai gagal dimuat (Ubin Cokelat Lama)
+
         float tileSize = 2.0f; 
         for (float x = -10.0f; x < 10.0f; x += tileSize) {
             for (float z = -10.0f; z < 10.0f; z += tileSize) {
@@ -214,7 +207,7 @@ void drawRoom() {
     glVertex3f(10.0f, 10.0f, 10.0f); glVertex3f(10.0f, 10.0f, -10.0f);
     glEnd();
 
-    // 4. TEMBOK KIRI (Dengan Jendela)
+    // 4. TEMBOK KIRI
     glColor3f(0.92f, 0.92f, 0.92f);
     glBegin(GL_QUADS);
     glNormal3f(1.0f, 0.0f, 0.0f);
@@ -228,7 +221,7 @@ void drawRoom() {
     glVertex3f(-10.0f, 7.0f, -10.0f); glVertex3f(-10.0f, 7.0f, -4.0f);
     glEnd();
 
-    // 5. TEMBOK DEPAN (Dengan Pintu)
+    // 5. TEMBOK DEPAN
     glBegin(GL_QUADS);
     glNormal3f(0.0f, 0.0f, -1.0f);
     glVertex3f(-10.0f, 0.0f, 10.0f); glVertex3f(-2.0f, 0.0f, 10.0f);
@@ -327,7 +320,7 @@ void drawBed() {
     glPushMatrix();
     glTranslatef(-6.0f, 0.0f, -6.0f);
     
-    // Dipan Kasur (Kayu Cokelat)
+    // Dipan Kasur
     glColor3f(0.3f, 0.2f, 0.1f);
     glPushMatrix();
     glTranslatef(0.0f, 0.5f, 0.0f);
@@ -348,16 +341,15 @@ void drawBed() {
     glPushMatrix(); glTranslatef(-1.2f, 1.6f, -2.5f); glScalef(1.8f, 0.3f, 1.2f); glutSolidCube(1.0); glPopMatrix();
     glPushMatrix(); glTranslatef(1.2f, 1.6f, -2.5f);  glScalef(1.8f, 0.3f, 1.2f); glutSolidCube(1.0); glPopMatrix();
     
-    // -------------------------------------------------------------------------
-    // PERBAIKAN: SELEKSI TEKSTUR SPREI MANCHESTER UNITED
-    // -------------------------------------------------------------------------
+
+    // SPREI MANCHESTER UNITED
     if (isBedLoaded) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, bedTexture);
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-        glColor3f(1.0f, 1.0f, 1.0f); // Putih agar warna asli gambar MU keluar cerah
+        glColor3f(1.0f, 1.0f, 1.0f);
     } else {
-        glColor3f(0.3f, 0.5f, 0.6f); // Fallback warna biru lama jika gagal
+        glColor3f(0.3f, 0.5f, 0.6f);
     }
 
     glBegin(GL_QUADS);
@@ -368,7 +360,7 @@ void drawBed() {
     glTexCoord2f(1.0f, 1.0f); glVertex3f( 2.45f, 1.55f, 3.45f);
     glTexCoord2f(0.0f, 1.0f); glVertex3f(-2.45f, 1.55f, 3.45f);
 
-    // B. SISI DEPAN SPREI (Menjuntai ke Bawah)
+    // B. SISI DEPAN SPREI
     glNormal3f(0.0f, 0.0f, 1.0f);
     glTexCoord2f(0.0f, 1.0f); glVertex3f(-2.45f, 1.55f, 3.45f);
     glTexCoord2f(1.0f, 1.0f); glVertex3f( 2.45f, 1.55f, 3.45f);
@@ -380,7 +372,6 @@ void drawBed() {
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
         glDisable(GL_TEXTURE_2D);
     }
-    // -------------------------------------------------------------------------
 
     glPopMatrix();
 }
@@ -629,16 +620,14 @@ bool checkCollision(float x, float z) {
     // 2. LOGIKA DINAMIS TEMBOK DEPAN & PINTU (z > 9.5f)
     if (z > 9.5f) {
         if (!isDoorOpen) {
-            // Jika pintu tertutup, kunci total tidak boleh lewat semenit pun
+
             return true; 
         } else {
-            // Jika pintu terbuka, cek apakah posisi X kamu berada DI LUAR lubang pintu
-            // Lubang pintu asli: -2.0f sampai 2.0f. Kita beri toleransi radius kamera jadi -1.5f sampai 1.5f
+
             if (x < -1.5f || x > 1.5f) {
-                return true; // Nabrak sisa tembok depan sebelah kiri atau kanan
+                return true;
             }
-            
-            // Batas halaman luar kos (biar kamu gak jalan bablas sampai jatuh ke ujung dunia OpenGL)
+
             if (z > 40.0f) {
                 return true;
             }
@@ -759,7 +748,6 @@ int main(int argc, char** argv) {
     
     glutDisplayFunc(display);
     
-    // Memanggil fungsi muat aset gambar yang baru
     loadAllTextures();
     
     glutFullScreen(); 
