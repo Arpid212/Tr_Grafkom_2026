@@ -1,5 +1,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <GL/freeglut.h>
+#include "stb_image.h"
 #include <math.h>
 #include <string.h>
 #include <iostream>
@@ -22,6 +23,32 @@ float fanAngle = 0.0f;
 bool isLightOn = false;
 bool isDoorOpen = false;
 float doorAngle = 0.0f; 
+
+GLuint posterTexture;
+bool isTextureLoaded = false;
+
+void loadTexture() {
+    stbi_set_flip_vertically_on_load(true);
+    int width, height, channels;
+    
+    // Gunakan nama file yang SAMA PERSIS dengan yang dites tadi (misal: "poster.jpg")
+    unsigned char* data = stbi_load("test.jpg", &width, &height, &channels, 3);
+    
+    if (data) {
+        isTextureLoaded = true;
+        glEnable(GL_TEXTURE_2D);
+        glGenTextures(1, &posterTexture);
+        glBindTexture(GL_TEXTURE_2D, posterTexture);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        stbi_image_free(data);
+    } else {
+        isTextureLoaded = false;
+        std::cout << "Masih Gagal: " << stbi_failure_reason() << std::endl;
+    }
+}
 
 void passiveMouseMotion(int x, int y) {
     int width = glutGet(GLUT_WINDOW_WIDTH);
@@ -145,6 +172,32 @@ void drawRoom() {
     glVertex3f(-2.0f, 6.0f, 10.0f); glVertex3f(2.0f, 6.0f, 10.0f);
     glVertex3f(2.0f, 10.0f, 10.0f); glVertex3f(-2.0f, 10.0f, 10.0f);
     glEnd();
+}
+
+void drawPoster() {
+    if (isTextureLoaded) {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, posterTexture);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    } else {
+        glDisable(GL_TEXTURE_2D);
+        glColor3f(1.0f, 0.0f, 0.0f); 
+    }
+    
+    glBegin(GL_QUADS);
+    glNormal3f(0.0f, 0.0f, 1.0f); 
+    
+    // PERBAIKAN KOORDINAT: Sumbu X dipersempit dari 2.5 menjadi 1.665 agar rasio sesuai foto
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.665f, 3.5f, -9.9f); // Kiri Bawah
+    glTexCoord2f(1.0f, 0.0f); glVertex3f( 1.665f, 3.5f, -9.9f); // Kanan Bawah
+    glTexCoord2f(1.0f, 1.0f); glVertex3f( 1.665f, 8.5f, -9.9f); // Kanan Atas
+    glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.665f, 8.5f, -9.9f); // Kiri Atas
+    glEnd();
+    
+    if (isTextureLoaded) {
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        glDisable(GL_TEXTURE_2D);
+    }
 }
 
 void drawCurtains() {
@@ -631,6 +684,8 @@ void display() {
     glLoadIdentity();
     gluLookAt(camX, camY, camZ, lookX, lookY, lookZ, 0.0f, 1.0f, 0.0f);
 
+    glDisable(GL_LIGHTING); 
+    drawPoster();
     if (isLightOn) {
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
@@ -640,6 +695,7 @@ void display() {
 
     drawEnvironment(); 
     drawRoom();        
+    drawPoster();
     drawDoor();        
     drawCurtains();
     drawFan();          
@@ -690,6 +746,9 @@ int main(int argc, char** argv) {
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(1024, 768);
     glutCreateWindow("Tugas Akhir Grafika Komputer - Kamar Kos Interaktif");
+    
+    glutDisplayFunc(display);
+    loadTexture();
     glutFullScreen(); 
 
     for(int i = 0; i < 256; i++) keys[i] = false;
@@ -697,7 +756,6 @@ int main(int argc, char** argv) {
     glEnable(GL_DEPTH_TEST);
     initLighting();
 
-    glutDisplayFunc(display);
     glutKeyboardFunc(keyDown);
     glutKeyboardUpFunc(keyUp); 
     glutMouseFunc(mouseButton);
