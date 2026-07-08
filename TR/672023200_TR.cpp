@@ -11,6 +11,13 @@ float lookX = 0.0f, lookY = 4.0f, lookZ = 0.0f;
 float angleH = 0.0f, angleV = 0.0f; 
 float fov = 60.0f; 
 
+bool isFreeCamera = false;
+const float START_CAM_X = 0.0f;
+const float START_CAM_Y = 4.0f;
+const float START_CAM_Z = 8.0f;
+const float START_ANGLE_H = 0.0f;
+const float START_ANGLE_V = 0.0f;
+
 bool isMouseLeftDown = false;
 int lastMouseX = 0, lastMouseY = 0;
 bool keys[256]; 
@@ -650,21 +657,120 @@ bool checkCollision(float x, float z) {
 }
 void handleMovement() {
     float moveSpeed = 0.15f; 
+    
+    // Vektor arah pergerakan
     float dirX = sin(angleH) * cos(angleV);
+    float dirY = sin(angleV); // Digunakan untuk terbang
     float dirZ = -cos(angleH) * cos(angleV);
     float rightX = cos(angleH);
     float rightZ = sin(angleH);
 
     float nextX = camX;
+    float nextY = camY; // Variabel baru untuk pergerakan vertikal
     float nextZ = camZ;
 
-    if (keys['w'] || keys['W']) { nextX += dirX * moveSpeed; nextZ += dirZ * moveSpeed; }
-    if (keys['s'] || keys['S']) { nextX -= dirX * moveSpeed; nextZ -= dirZ * moveSpeed; }
+    // Logika tombol WASD
+    if (keys['w'] || keys['W']) { 
+        nextX += dirX * moveSpeed; 
+        nextZ += dirZ * moveSpeed; 
+        if (isFreeCamera) nextY += dirY * moveSpeed; // Terbang arah pandangan
+    }
+    if (keys['s'] || keys['S']) { 
+        nextX -= dirX * moveSpeed; 
+        nextZ -= dirZ * moveSpeed; 
+        if (isFreeCamera) nextY -= dirY * moveSpeed; 
+    }
     if (keys['a'] || keys['A']) { nextX -= rightX * moveSpeed; nextZ -= rightZ * moveSpeed; }
     if (keys['d'] || keys['D']) { nextX += rightX * moveSpeed; nextZ += rightZ * moveSpeed; }
 
-    if (!checkCollision(nextX, camZ)) camX = nextX;
-    if (!checkCollision(camX, nextZ)) camZ = nextZ;
+    // Fitur ekstra: Q (turun) dan E (naik) khusus Free Camera
+    if (isFreeCamera) {
+        if (keys['e'] || keys['E']) nextY += moveSpeed;
+        if (keys['q'] || keys['Q']) nextY -= moveSpeed;
+    }
+
+    // Terapkan pergerakan berdasarkan mode
+    if (isFreeCamera) {
+        // Jika mode terbang aktif, abaikan checkCollision
+        camX = nextX;
+        camY = nextY;
+        camZ = nextZ;
+    } else {
+        // Jika mode normal (berjalan), gunakan checkCollision
+        if (!checkCollision(nextX, camZ)) camX = nextX;
+        if (!checkCollision(camX, nextZ)) camZ = nextZ;
+    }
+}
+// Fungsi untuk menampilkan teks 2D di layar (HUD)
+void drawHUD() {
+    // Simpan matriks proyeksi saat ini dan pindah ke mode 2D Orthographic
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    int width = glutGet(GLUT_WINDOW_WIDTH);
+    int height = glutGet(GLUT_WINDOW_HEIGHT);
+    gluOrtho2D(0, width, 0, height);
+
+    // Pindah ke matriks modelview
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    // Matikan depth test dan lighting agar teks selalu di depan dan terang
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+
+    // Daftar instruksi
+    const char* instructions[] = {
+        "INSTRUKSI KONTROL:",
+        "W : Maju ke depan",
+        "A : Bergerak ke kiri",
+        "S : Bergerak ke belakang",
+        "D : Bergerak ke kanan",
+        "C : Mode Free Camera (Terbang)",
+        "Q : Terbang Turun (Mode C)",
+        "E : Terbang Naik (Mode C)",
+        "F : Buka / Tutup Pintu",
+        "L : Nyalakan / Matikan Lampu",
+        "K : Nyalakan / Matikan Kipas",
+        "Mouse : Melihat sekeliling",
+        "Scroll: Zoom In / Zoom Out",
+        "ESC: Keluar"
+    };
+
+    int numInstructions = sizeof(instructions) / sizeof(instructions[0]);
+    int xPos = 20; // Jarak margin dari kiri layar
+    int yPos = height - 40; // Jarak margin dari atas layar
+
+    for (int i = 0; i < numInstructions; i++) {
+        int currentY = yPos - (i * 25); // Jarak vertikal antar baris teks
+        
+        // 1. Buat bayangan (Hitam) agar teks terbaca di background terang/gelap
+        glColor3f(0.0f, 0.0f, 0.0f);
+        glRasterPos2i(xPos + 2, currentY - 2);
+        for (int j = 0; j < strlen(instructions[i]); j++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, instructions[i][j]);
+        }
+
+        // 2. Warna teks utama (Kuning untuk judul, Putih untuk daftar kontrol)
+        if (i == 0) glColor3f(1.0f, 1.0f, 0.0f); 
+        else glColor3f(1.0f, 1.0f, 1.0f);
+        
+        glRasterPos2i(xPos, currentY);
+        for (int j = 0; j < strlen(instructions[i]); j++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, instructions[i][j]);
+        }
+    }
+
+    // Kembalikan pengaturan ke 3D seperti semula
+    glEnable(GL_DEPTH_TEST);
+    if (isLightOn) glEnable(GL_LIGHTING);
+
+    // Kembalikan matriks
+    glPopMatrix(); // Restore Modelview
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix(); // Restore Projection
+    glMatrixMode(GL_MODELVIEW); 
 }
 
 void timer(int value) {
@@ -712,13 +818,24 @@ void display() {
     drawDeskAndLaptop();
     drawBookshelf();
     drawWardrobeAndClothes();
-
+    drawHUD();
     glutSwapBuffers();
 }
 
 void keyDown(unsigned char key, int x, int y) {
     keys[key] = true; 
     switch (key) {
+        case 'c': case 'C': 
+            isFreeCamera = !isFreeCamera; // Toggle Nyala/Mati Free Camera
+            if (!isFreeCamera) {
+                // Reset posisi kamera ke titik awal jika Free Camera dimatikan
+                camX = START_CAM_X;
+                camY = START_CAM_Y;
+                camZ = START_CAM_Z;
+                angleH = START_ANGLE_H;
+                angleV = START_ANGLE_V;
+            }
+            break;
         case 'k': case 'K': isFanMoving = !isFanMoving; break;
         case 'l': case 'L': isLightOn = !isLightOn; break;
         case 'f': case 'F': isDoorOpen = !isDoorOpen; break;
