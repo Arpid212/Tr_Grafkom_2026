@@ -137,8 +137,6 @@ void drawText3D(const char* text, float x, float y, float z, float scale, float 
     glPopMatrix();
 }
 
-
-// LINGKUNGAN & RUANGAN DASAR
 void drawEnvironment() {
     glColor3f(0.3f, 0.7f, 0.3f);
     glBegin(GL_QUADS);
@@ -648,6 +646,7 @@ bool checkCollision(float x, float z) {
 
     return false; // Aman, tidak ada tabrakan
 }
+
 void handleMovement() {
     float moveSpeed = 0.15f; 
     
@@ -832,7 +831,9 @@ void keyDown(unsigned char key, int x, int y) {
     }
 }
 
-void keyUp(unsigned char key, int x, int y) { keys[key] = false; }
+void keyUp(unsigned char key, int x, int y) { 
+    keys[key] = false; 
+}
 
 void mouseButton(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON) {
