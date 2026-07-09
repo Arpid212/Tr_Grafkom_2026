@@ -544,7 +544,7 @@ void drawBookshelf() {
     glPushMatrix(); glTranslatef(0.0f, 1.15f, 0.2f); drawSingleBook(0.38f, 1.2f, 1.2f, 0.2f, 0.7f, 0.2f, "Algoritma"); glPopMatrix();
     
     glPushMatrix(); glTranslatef(0.4f, 3.1f, 0.2f); drawSingleBook(0.35f, 1.1f, 1.2f, 0.9f, 0.6f, 0.1f, "KreatorHub Master"); glPopMatrix();
-    glPushMatrix(); glTranslatef(0.0f, 3.0f, 0.2f); drawSingleBook(0.35f, 0.9f, 1.2f, 0.4f, 0.4f, 0.4f, "UI/UX Design"); glPopMatrix();
+    glPushMatrix(); glTranslatef(0.0f, 3.0f, 0.2f); drawSingleBook(0.35f, 0.9f, 1.2f, 0.4f, 0.4f, 0.4f, "Novel Ending abu-abu"); glPopMatrix();
     
     
     glPopMatrix(); 
