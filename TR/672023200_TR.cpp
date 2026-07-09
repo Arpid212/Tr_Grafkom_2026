@@ -60,7 +60,7 @@ void loadAllTextures() {
         std::cout << "Gagal muat poster: " << stbi_failure_reason() << std::endl;
     }
 
-    // 2. MEMUAT GAMBAR LANTAI (lantai.bmp)
+    // 2. MEMUAT GAMBAR LANTAI
     unsigned char* floorData = stbi_load("lantai.bmp", &width, &height, &channels, 3);
     if (floorData) {
         isFloorLoaded = true;
@@ -79,7 +79,7 @@ void loadAllTextures() {
         std::cout << "Gagal muat lantai: " << stbi_failure_reason() << std::endl;
     }
 
-    // 3. MEMUAT GAMBAR SPREI (mu.jpg)
+    // 3.GAMBAR SPREI 
     unsigned char* bedData = stbi_load("mu.jpg", &width, &height, &channels, 3);
     if (bedData) {
         isBedLoaded = true;
@@ -118,8 +118,6 @@ void passiveMouseMotion(int x, int y) {
     glutWarpPointer(centerX, centerY);
 }
 
-
-// FUNGSI UTILITAS GEOMETRI & TEKS
 void updateCameraLook() {
     lookX = camX + sin(angleH) * cos(angleV);
     lookY = camY + sin(angleV);
@@ -349,7 +347,7 @@ void drawBed() {
     glPushMatrix(); glTranslatef(1.2f, 1.6f, -2.5f);  glScalef(1.8f, 0.3f, 1.2f); glutSolidCube(1.0); glPopMatrix();
     
 
-    // SPREI MANCHESTER UNITED
+    // SPREI MU
     if (isBedLoaded) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, bedTexture);
@@ -550,11 +548,6 @@ void drawBookshelf() {
     glPushMatrix(); glTranslatef(0.4f, 3.1f, 0.2f); drawSingleBook(0.35f, 1.1f, 1.2f, 0.9f, 0.6f, 0.1f, "KreatorHub Master"); glPopMatrix();
     glPushMatrix(); glTranslatef(0.0f, 3.0f, 0.2f); drawSingleBook(0.35f, 0.9f, 1.2f, 0.4f, 0.4f, 0.4f, "UI/UX Design"); glPopMatrix();
     
-    glPushMatrix(); 
-    glTranslatef(-0.6f, 5.1f, 0.2f); 
-    glRotatef(-16.0f, 0.0f, 0.0f, 1.0f); 
-    drawSingleBook(0.32f, 1.1f, 1.2f, 0.9f, 0.3f, 0.6f, "Memori Anggita"); 
-    glPopMatrix();
     
     glPopMatrix(); 
 }
@@ -683,7 +676,7 @@ void handleMovement() {
     if (keys['a'] || keys['A']) { nextX -= rightX * moveSpeed; nextZ -= rightZ * moveSpeed; }
     if (keys['d'] || keys['D']) { nextX += rightX * moveSpeed; nextZ += rightZ * moveSpeed; }
 
-    // Fitur ekstra: Q (turun) dan E (naik) khusus Free Camera
+    
     if (isFreeCamera) {
         if (keys['e'] || keys['E']) nextY += moveSpeed;
         if (keys['q'] || keys['Q']) nextY -= moveSpeed;
@@ -691,19 +684,17 @@ void handleMovement() {
 
     // Terapkan pergerakan berdasarkan mode
     if (isFreeCamera) {
-        // Jika mode terbang aktif, abaikan checkCollision
         camX = nextX;
         camY = nextY;
         camZ = nextZ;
     } else {
-        // Jika mode normal (berjalan), gunakan checkCollision
         if (!checkCollision(nextX, camZ)) camX = nextX;
         if (!checkCollision(camX, nextZ)) camZ = nextZ;
     }
 }
-// Fungsi untuk menampilkan teks 2D di layar (HUD)
+
 void drawHUD() {
-    // Simpan matriks proyeksi saat ini dan pindah ke mode 2D Orthographic
+
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -716,7 +707,7 @@ void drawHUD() {
     glPushMatrix();
     glLoadIdentity();
 
-    // Matikan depth test dan lighting agar teks selalu di depan dan terang
+    // agar teks selalu di depan dan terang
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_LIGHTING);
 
@@ -739,20 +730,18 @@ void drawHUD() {
     };
 
     int numInstructions = sizeof(instructions) / sizeof(instructions[0]);
-    int xPos = 20; // Jarak margin dari kiri layar
-    int yPos = height - 40; // Jarak margin dari atas layar
+    int xPos = 20; // padding dari kiri
+    int yPos = height - 40; // padding atas
 
     for (int i = 0; i < numInstructions; i++) {
         int currentY = yPos - (i * 25); // Jarak vertikal antar baris teks
-        
-        // 1. Buat bayangan (Hitam) agar teks terbaca di background terang/gelap
+
         glColor3f(0.0f, 0.0f, 0.0f);
         glRasterPos2i(xPos + 2, currentY - 2);
         for (int j = 0; j < strlen(instructions[i]); j++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, instructions[i][j]);
         }
 
-        // 2. Warna teks utama (Kuning untuk judul, Putih untuk daftar kontrol)
         if (i == 0) glColor3f(1.0f, 1.0f, 0.0f); 
         else glColor3f(1.0f, 1.0f, 1.0f);
         
@@ -826,9 +815,9 @@ void keyDown(unsigned char key, int x, int y) {
     keys[key] = true; 
     switch (key) {
         case 'c': case 'C': 
-            isFreeCamera = !isFreeCamera; // Toggle Nyala/Mati Free Camera
+            isFreeCamera = !isFreeCamera; // Toggle Free Camera
             if (!isFreeCamera) {
-                // Reset posisi kamera ke titik awal jika Free Camera dimatikan
+                // Reset posisi kamera 
                 camX = START_CAM_X;
                 camY = START_CAM_Y;
                 camZ = START_CAM_Z;
